@@ -275,6 +275,19 @@ obesity_data %>%
 
 ```
 
+And now to save the data 
+
+
+```{r}
+obesity_data_tidied <- obesity_data %>% 
+  filter(metric == "Percent") %>% 
+  filter(age_group_name == "adults (20+) age-standardized`") %>% 
+  filter(sex != "Both") %>% 
+  filter(location_name %in% countries_to_find) %>% 
+  select(country = location_name, sex, year = year_id, pct_obese = mean)
+
+```
+
 
 A couple of explorations within countries by age group (not organised into increasing age groups)
 
@@ -340,3 +353,164 @@ In the case of the USA, there's clearly been an 'obesogenic transition', from ar
 
 The finding that, at least in the countries explored, rates of obesity peaked in the mid/late 2000s, whereas the mortality slowdown occurred post 2012ish, intuitively suggests that obesity isn't a primary explanation for the slowdown.  (However, the formal analysis is still to be done)
 
+## Life expectancy 
+
+Let's now move to the e0 data 
+
+(I'm not immediately sure which file is males and which is females, but should be able to find out by looking at the data)
+
+```{r}
+e0_male <- read_csv("data/raw/e0/UNdata_Export_20190702_165521202/UNdata_Export_20190702_165521202.csv")
+e0_female <- read_csv("data/raw/e0/UNdata_Export_20190702_165541969/UNdata_Export_20190702_165541969.csv")
+
+```
+
+Let's set up the year column to be easier to work with 
+
+```{r}
+e0_combined <- e0_male %>% 
+  rename(year_range = `Year(s)`) %>% 
+  separate(year_range, into = c("start_year", "end_year"), sep = "-", convert = TRUE) %>% 
+  rename(male = Value) %>% 
+  inner_join(
+    e0_female %>% 
+      rename(year_range = `Year(s)`) %>% 
+      separate(year_range, into = c("start_year", "end_year"), sep = "-", convert = TRUE) %>% 
+      rename(female = Value)
+  )
+
+
+
+```
+
+
+Now let's look at the data to work out which life expectancy is likely to correspond to which gender
+
+```{r}
+e0_combined %>% 
+  gather(key = "sex", value = "e0", male:female) %>% 
+  filter(`Country or Area` == "United Kingdom") %>% 
+  ggplot(aes(x = start_year, y = e0, colour = sex, group = sex)) +
+  geom_line() +   geom_point() + 
+  facet_wrap(~`Country or Area`)  
+
+```
+
+
+
+Now to get mid year, and filter on countries of interest
+
+```{r}
+e0_combined %>% 
+  gather(key = "sex", value = "e0", male:female) %>% 
+  mutate(mid_year = start_year + (end_year - start_year)/2) %>%
+  filter(mid_year < 2016) %>% 
+  rename(country = `Country or Area`) %>% 
+  filter(country %in% countries_to_find) %>% 
+  ggplot(aes(x = mid_year, y = e0, colour = sex, group = sex)) + 
+  geom_point() + geom_line() + 
+  facet_wrap(~country)
+
+```
+
+
+Missing: 
+
+* Czech Republic (Czechia)
+* Slovak Republic (Slovakia)
+* United States (United States of America)
+
+Let's find these countries in the UN dataset and rename them so they match
+
+```{r}
+unique(e0_combined$`Country or Area`)
+
+```
+
+So these three need renaming for consistency first
+
+```{r}
+
+e0_combined %>% 
+  gather(key = "sex", value = "e0", male:female) %>% 
+  mutate(mid_year = start_year + (end_year - start_year)/2) %>%
+  filter(mid_year < 2016) %>% 
+  rename(country = `Country or Area`) %>% 
+  mutate(country = case_when(
+    country == "United States of America" ~ "United States",
+    country == "Czechia"                  ~ "Czech Republic",
+    country == "Slovakia"                 ~ "Slovak Republic",
+    TRUE                                  ~ country 
+    )
+  ) %>% 
+  filter(country %in% countries_to_find) %>% 
+  ggplot(aes(x = mid_year, y = e0, colour = sex, group = sex)) + 
+    geom_point() + geom_line() + 
+    facet_wrap(~country)
+  
+
+```
+
+
+So all countries are now identified. Let's save this 
+
+
+```{r}
+e0_tidied <- e0_combined %>% 
+  gather(key = "sex", value = "e0", male:female) %>% 
+  mutate(mid_year = start_year + (end_year - start_year)/2) %>%
+  filter(mid_year < 2016 & mid_year > 1979) %>% 
+  rename(country = `Country or Area`) %>% 
+  mutate(country = case_when(
+    country == "United States of America" ~ "United States",
+    country == "Czechia"                  ~ "Czech Republic",
+    country == "Slovakia"                 ~ "Slovak Republic",
+    TRUE                                  ~ country 
+    )
+  ) %>% 
+  filter(country %in% countries_to_find) %>% 
+  select(country, start_year, mid_year, end_year, sex, e0)
+
+
+```
+
+
+Now to join the data 
+
+```{r}
+combined_data <- obesity_data_tidied %>% 
+  mutate(year_grp = cut(year, seq(1980, 2020, 5), include.lowest = TRUE) %>% as.character()) %>% 
+  mutate(year_grp = str_replace(year_grp, "\\[", "")) %>% 
+  mutate(year_grp = str_replace(year_grp, "\\]", "")) %>%
+  mutate(year_grp = str_replace(year_grp, "\\(", "")) %>%
+  mutate(sex = tolower(sex)) %>% 
+  separate(year_grp, into = c("start_year", "end_year"), convert = TRUE) %>% 
+  group_by(country, sex, start_year, end_year) %>% 
+  summarise(pct_obese = mean(pct_obese)) %>% 
+  ungroup() %>% 
+  inner_join(
+    e0_tidied
+  )
+  
+```
+
+
+We can now show the association in 1980 and in the last common period 
+
+```{r}
+combined_data %>% 
+  ggplot(aes(x = pct_obese, y = e0, group = sex, colour = sex, shape = sex)) +
+  geom_point() +
+  facet_wrap(~start_year) + 
+  stat_smooth(method = "lm") + 
+  labs(
+    x = "Percentage obese",
+    y = "Life expectancy at birth",
+    title = "Relationship between percentage obese and life expectancy for OECD countries",
+    subtitle = "Averages within five year bands starting with year indicated in facets",
+    caption = "Sources: UN; GBD"
+  )
+
+
+ggsave("figures/scatterplot.png", height = 20, width = 25, units = "cm", dpi = 300)
+```
