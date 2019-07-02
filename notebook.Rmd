@@ -93,6 +93,15 @@ author:
 
 # Research
 
+```{r}
+rm(list = ls())
+
+pacman::p_load(
+  tidyverse
+)
+
+```
+
 ## Research Stages 
 
 The stages required: 
@@ -116,4 +125,218 @@ The stages required:
 #### Data Loading 
 
 
+```{r}
+obesity_data <- read_csv("data/raw/obesity/IHME_GBD_2015_OBESITY_PREVALENCE_1980_2015_1/IHME_GBD_2015_OBESITY_PREVALENCE_1980_2015_Y2017M06D12.CSV")
+
+```
+
+Explore the data 
+
+```{r}
+glimpse(obesity_data)
+
+```
+
+Visualise the data 
+
+```{r}
+obesity_data %>% 
+  filter(metric == "Percent") %>% 
+  filter(age_group_name == "adults (20+) age-standardized`") %>% 
+  ggplot(aes(x = year_id, y = mean, group = location_name)) +
+  geom_line() + 
+  facet_wrap(~sex)
+
+```
+
+
+Now to see if I can find the specific OECD countries listed above 
+
+
+First define the countries as a long vector of character strings 
+
+```{r}
+countries_to_find <- c(
+ "Australia", 
+ "Austria",
+ "Belgium", 
+ "Canada", 
+ "Chile", 
+ "Czech Republic", 
+ "Denmark", 
+ "Estonia", 
+ "Finland", 
+ "France", 
+ "Germany", 
+ "Greece", 
+ "Hungary", 
+ "Iceland", 
+ "Ireland", 
+ "Israel", 
+ "Italy", 
+ "Japan", 
+ "South Korea", 
+ "Latvia", 
+ "Lithuania", 
+ "Luxembourg", 
+ "Mexico", 
+ "Netherlands", 
+ "New Zealand", 
+ "Norway", 
+ "Poland", 
+ "Portugal", 
+ "Slovak Republic", 
+ "Slovenia", 
+ "Spain", 
+ "Sweden", 
+ "Switzerland", 
+ "Turkey", 
+ "Scotland", 
+ "England", 
+ "Northern Ireland", 
+ "Wales", 
+ "United States"   
+)
+
+```
+
+Now to see if at least one entry picked up for each 
+
+```{r}
+
+obesity_data %>% 
+  filter(metric == "Percent") %>% 
+  filter(age_group_name == "adults (20+) age-standardized`") %>% 
+  filter(sex != "Both") %>% 
+  filter(location_name %in% countries_to_find) %>% 
+  ggplot(aes(x = year_id, y = mean, group = location_name, colour = sex)) +
+  geom_line() + 
+  facet_wrap(~location_name)
+
+```
+
+The data provided does not disaggregate the UK into countries. 
+
+```{r}
+countries_to_find <- c(
+ "Australia", 
+ "Austria",
+ "Belgium", 
+ "Canada", 
+ "Chile", 
+ "Czech Republic", 
+ "Denmark", 
+ "Estonia", 
+ "Finland", 
+ "France", 
+ "Germany", 
+ "Greece", 
+ "Hungary", 
+ "Iceland", 
+ "Ireland", 
+ "Israel", 
+ "Italy", 
+ "Japan", 
+ "South Korea", 
+ "Latvia", 
+ "Lithuania", 
+ "Luxembourg", 
+ "Mexico", 
+ "Netherlands", 
+ "New Zealand", 
+ "Norway", 
+ "Poland", 
+ "Portugal", 
+ "Slovak Republic", 
+ "Slovenia", 
+ "Spain", 
+ "Sweden", 
+ "Switzerland", 
+ "Turkey", 
+ "United Kingdom", 
+ "United States"   
+)
+
+```
+
+Now to redo the figures 
+
+
+```{r}
+
+obesity_data %>% 
+  filter(metric == "Percent") %>% 
+  filter(age_group_name == "adults (20+) age-standardized`") %>% 
+  filter(sex != "Both") %>% 
+  filter(location_name %in% countries_to_find) %>% 
+  ggplot(aes(x = year_id, y = mean, colour = sex)) +
+  geom_line() + 
+  facet_wrap(~location_name)
+
+```
+
+
+A couple of explorations within countries by age group (not organised into increasing age groups)
+
+Firstly Italy:
+
+
+```{r}
+
+obesity_data %>% 
+  filter(metric == "Percent") %>% 
+  filter(sex != "Both") %>% 
+  filter(location_name == "Italy") %>% 
+  ggplot(aes(x = year_id, y = mean, colour = sex)) +
+  geom_line() + 
+  facet_wrap(~age_group_name)
+
+```
+
+Now the United Kingdom
+
+```{r}
+
+obesity_data %>% 
+  filter(metric == "Percent") %>% 
+  filter(sex != "Both") %>% 
+  filter(location_name == "United Kingdom") %>% 
+  ggplot(aes(x = year_id, y = mean, colour = sex)) +
+  geom_line() + 
+  facet_wrap(~age_group_name)
+
+```
+
+And now France
+
+```{r}
+
+obesity_data %>% 
+  filter(metric == "Percent") %>% 
+  filter(sex != "Both") %>% 
+  filter(location_name == "France") %>% 
+  ggplot(aes(x = year_id, y = mean, colour = sex)) +
+  geom_line() + 
+  facet_wrap(~age_group_name)
+
+```
+
+Finally, the USA 
+
+
+```{r}
+
+obesity_data %>% 
+  filter(metric == "Percent") %>% 
+  filter(sex != "Both") %>% 
+  filter(location_name == "United States") %>% 
+  ggplot(aes(x = year_id, y = mean, colour = sex)) +
+  geom_line() + 
+  facet_wrap(~age_group_name)
+
+```
+
+In the case of the USA, there's clearly been an 'obesogenic transition', from around 10% in the early 1980s to around 35-40% by the mid 2000s. However it's plateaued. 
+
+The finding that, at least in the countries explored, rates of obesity peaked in the mid/late 2000s, whereas the mortality slowdown occurred post 2012ish, intuitively suggests that obesity isn't a primary explanation for the slowdown.  (However, the formal analysis is still to be done)
 
